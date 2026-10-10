@@ -54,6 +54,14 @@ Item {
   property int discoveryPendingCount: 0
   property var discoveryChoices: null
   property string discoveryChoiceAccount: ""
+  // Every calendar a Google account has selected in Google Calendar shows
+  // without a trip to the settings: discovery runs once a session for each
+  // signed-in Google account and is saved straight away, with Google's own
+  // selection as the default (Sources.applyDiscovery). Discovery asked for
+  // from the settings page keeps its review step.
+  property bool autoDiscoverGoogle: false
+  property var autoDiscovered: ({})
+  property string autoDiscoveringAccountId: ""
   property bool clockRunning: false
   property double nowMs: Date.now()
   property bool refreshAfterSourceWrite: false
@@ -227,6 +235,40 @@ Item {
     return "Calendars could not be discovered"
   }
 
+  function autoDiscoverNext() {
+    if (!autoDiscoverGoogle || !sourcesLoaded || !service || service.backendCanGoogleCalendars !== true)
+      return
+    if (discoveringCalendars || savingSource || discoveryChoices !== null) {
+      autoDiscoverTimer.restart()
+      return
+    }
+    var accounts = Array.isArray(service.accountSummaries) ? service.accountSummaries : []
+    for (var i = 0; i < accounts.length; i++) {
+      var id = String((accounts[i] || {}).id || "")
+      if (id === "" || autoDiscovered[id] === true || (accounts[i] || {}).calendarProvider !== "google"
+          || !discoverableAccount(id)) continue
+      var done = Object.assign({}, autoDiscovered)
+      done[id] = true
+      autoDiscovered = done
+      autoDiscoveringAccountId = id
+      if (!discoverAccountCalendars(id)) autoDiscoveringAccountId = ""
+      return
+    }
+  }
+
+  Timer {
+    id: autoDiscoverTimer
+    interval: 1500
+    onTriggered: root.autoDiscoverNext()
+  }
+  onSourcesLoadedChanged: if (autoDiscoverGoogle) autoDiscoverTimer.restart()
+  Connections {
+    target: root.autoDiscoverGoogle ? root.service : null
+    ignoreUnknownSignals: true
+    function onAccountSummariesChanged() { autoDiscoverTimer.restart() }
+    function onBackendCanGoogleCalendarsChanged() { autoDiscoverTimer.restart() }
+  }
+
   function discoverAccountCalendars(accountId) {
     var wanted = String(accountId || "")
     if (discoveringCalendars || savingSource || !discoverableAccount(wanted)) return false
@@ -248,14 +290,20 @@ Item {
       if (serial !== root.discoverySerial || root.discoveringAccountId !== wanted) return
       root.discoveringCalendars = false
       root.discoveringAccountId = ""
+      var automatic = root.autoDiscoveringAccountId === wanted
+      root.autoDiscoveringAccountId = ""
+      if (automatic) autoDiscoverTimer.restart()
       if (error || !result || String(result.accountId || "") !== wanted
           || !Array.isArray(result.calendars) || !root.discoverableAccount(wanted)) {
+        // An account signed in before the calendar-list scope existed fails
+        // here; it keeps its primary calendar until it signs in again.
+        if (automatic) return
         root.discoveryError = root.discoveryFailure(error)
         root.discoveryFinished(false, root.discoveryError, 0)
         return
       }
       var next = Sources.applyDiscovery(root.sourceList, result)
-      if (result.provider === "google") {
+      if (result.provider === "google" && !automatic) {
         root.discoveryChoiceAccount = wanted
         root.discoveryChoices = next
         root.discoveryPendingCount = result.calendars.length

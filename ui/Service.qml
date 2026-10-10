@@ -2614,6 +2614,7 @@ Item {
     service: root
     pluginDir: root.pluginDir
     accountId: root.calendarAccountId
+    autoDiscoverGoogle: true
     onSourceListChanged: {
       barCalendar.sourceList = sourceList
       Qt.callLater(root.refreshCalendarPreview)
