@@ -13,7 +13,8 @@ deepEqual(outlook.settings("jane@hotmail.com"), {
   username: "jane@hotmail.com",
   aliases: [],
   insecure: false,
-  send: ""
+  send: "",
+  serverSavesSent: false
 })
 
 // A work or school mailbox submits through Microsoft 365's own SMTP host and

@@ -272,6 +272,12 @@ pub(super) async fn call_planned(
         submit["body"] = json!(STANDARD.encode(without_bcc(&body)));
         super::send(&submit).await?;
         sent.store(true, std::sync::atomic::Ordering::SeqCst);
+        // A submission server that files Sent itself (Gmail SMTP, DavMail's
+        // Graph backend) would hold two copies. Only the account's explicit
+        // choice skips ours, and only once SMTP has accepted the message.
+        if p["settings"]["serverSavesSent"] == true {
+            return Ok(json!({"sent":true,"warning":""}));
+        }
         let copy = async {
             let (mut w, key) = acquire(p).await?;
             let boxes = mailboxes(&mut w, p).await?;

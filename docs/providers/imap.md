@@ -10,3 +10,4 @@ Required when touching native IMAP/SMTP transport, IMAP parsing, listing, paging
 - Use `UID EXPUNGE`, never bare `EXPUNGE`, which also deletes messages marked by other clients.
 - IDs are `<uid>:<folder>`; UIDs alone collide across folders.
 - Discover folders with LIST and SPECIAL-USE; do not guess localized/provider-specific names.
+- After SMTP accepts a message, Omamail appends a \\Seen copy to \\Sent unless the account sets `serverSavesSent` ("Server saves sent mail"), for submission servers that file Sent themselves, such as Gmail SMTP or DavMail with its Graph backend. It never skips a draft APPEND and never turns an SMTP failure into success.

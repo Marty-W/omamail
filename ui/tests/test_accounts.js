@@ -13,6 +13,22 @@ function frozen(list) {
   return JSON.stringify(list)
 }
 
+// Only this mailbox opts out; account rebuilding and disk round trips retain
+// the choice without adding it to an unrelated existing account.
+for (const value of [undefined, false, "true", 1, null, true]) {
+  assert.strictEqual(accounts.makeImapSettings({ serverSavesSent: value }).serverSavesSent,
+    value === true)
+}
+const sentBase = accounts.add(accounts.emptyList(), account("existing@example.org"))
+const sentAdded = accounts.add(sentBase, account("work@example.org", {
+  provider: "imap", imap: { serverSavesSent: true }
+}))
+const sentReloaded = accounts.load(accounts.serialize(sentAdded))
+assert.strictEqual(accounts.find(sentReloaded, "imap:work@example.org").imap.serverSavesSent, true)
+deepEqual(accounts.find(sentReloaded, "existing@example.org"),
+  accounts.find(sentBase, "existing@example.org"))
+assert.strictEqual(accounts.find(sentReloaded, "existing@example.org").imap.serverSavesSent, false)
+
 // ------------------------------------------------------------------- shape
 
 deepEqual(accounts.emptyList(), { version: accounts.VERSION, accounts: [], activeId: "" })

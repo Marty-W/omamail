@@ -130,7 +130,9 @@ function makeImapSettings(raw) {
     // An Outlook mailbox's tenant and how it sends; neither is a secret and
     // both are empty for every other kind of mailbox.
     tenant: trimmed(values.tenant),
-    send: trimmed(values.send)
+    send: trimmed(values.send),
+    // The server files Sent itself, so Omamail keeps no second copy.
+    serverSavesSent: values.serverSavesSent === true
   }
 }
 

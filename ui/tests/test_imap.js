@@ -4,6 +4,16 @@ const { load, deepEqual } = require("./load")
 const imap = load("providers/ImapProtocol.js")
 const mail = load("message/Message.js")
 
+// Sent filing is an explicit boolean, preserved through form validation.
+for (const value of [undefined, false, "true", 1, null, true]) {
+  const raw = { imapHost: "imap.example.org", username: "a@example.org",
+    serverSavesSent: value }
+  const expected = value === true
+  assert.strictEqual(imap.normalizeSettings(raw).serverSavesSent, expected)
+  assert.strictEqual(imap.setupSettings(raw).serverSavesSent, expected)
+  assert.strictEqual(imap.validateSettings(imap.setupSettings(raw)).settings.serverSavesSent, expected)
+}
+
 // ------------------------------------------------------------------ servers
 
 assert.strictEqual(imap.domainOf("jane@fastmail.com"), "fastmail.com")

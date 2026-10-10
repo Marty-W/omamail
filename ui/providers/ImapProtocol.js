@@ -242,7 +242,9 @@ function normalizeSettings(raw) {
     // wire, and the one legitimate case — a local bridge — never leaves the
     // machine.
     insecure: values.insecure === true && isLoopback(values.imapHost),
-    send: normalizeSend(values.send)
+    send: normalizeSend(values.send),
+    // Explicit per-account choice; older settings keep client-side filing.
+    serverSavesSent: values.serverSavesSent === true
   }
 }
 
@@ -279,7 +281,8 @@ function setupSettings(raw) {
     username: trimmed(values.username) || trimmed(values.address),
     aliases: values.aliases,
     insecure: isLoopback(values.imapHost),
-    send: values.send
+    send: values.send,
+    serverSavesSent: values.serverSavesSent
   })
 }
 

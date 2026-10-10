@@ -519,3 +519,44 @@ fn outlook_settings_ignore_persisted_credential_destination_and_identity() {
     assert_eq!(settings["username"], "owner@example.org");
     assert_eq!(settings["insecure"], false);
 }
+#[tokio::test]
+async fn server_saves_sent_skips_the_sent_copy_after_smtp_accepts() {
+    let (listener, port) = server().await;
+    let server = tokio::spawn(async move {
+        let (socket, _) = listener.accept().await.unwrap();
+        let mut w: Wire = BufReader::new(Box::new(socket));
+        write(&mut w, b"220 ready\r\n").await.unwrap();
+        for (prefix, reply) in [
+            ("EHLO ", "250 ready\r\n"),
+            ("AUTH PLAIN ", "235 authenticated\r\n"),
+            ("MAIL FROM:<synthetic@example.org>", "250 sender\r\n"),
+            ("RCPT TO:<to@example.org>", "250 recipient\r\n"),
+            ("DATA", "354 go\r\n"),
+        ] {
+            assert!(String::from_utf8_lossy(&line(&mut w).await.unwrap()).starts_with(prefix));
+            write(&mut w, reply.as_bytes()).await.unwrap();
+        }
+        while line(&mut w).await.unwrap() != b".\r\n" {}
+        write(&mut w, b"250 queued\r\n").await.unwrap();
+        // No IMAP session follows: nothing is appended to Sent.
+        assert!(
+            tokio::time::timeout(Duration::from_millis(200), listener.accept())
+                .await
+                .is_err()
+        );
+    });
+    let mut p = params(port);
+    p["settings"]["smtpHost"] = json!("127.0.0.1");
+    p["settings"]["smtpPort"] = json!(port);
+    p["settings"]["username"] = json!("synthetic@example.org");
+    p["settings"]["serverSavesSent"] = json!(true);
+    p["credential"] = json!("synthetic@example.org:password");
+    p["raw"] = json!(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(
+        b"From: synthetic@example.org\r\nTo: to@example.org\r\nSubject: test\r\n\r\nbody"
+    ));
+    assert_eq!(
+        call("imap.send", &p).await,
+        Ok(json!({"sent":true,"warning":""}))
+    );
+    server.await.unwrap();
+}

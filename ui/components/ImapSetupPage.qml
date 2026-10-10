@@ -25,6 +25,7 @@ Column {
   property int accountCount: 1
   property bool passwordVisible: false
   property bool serversVisible: false
+  property bool serverSavesSent: false
 
   signal removeRequested()
 
@@ -47,7 +48,8 @@ Column {
       smtpHost: smtpHostField.text.trim(),
       smtpPort: smtpPortField.text,
       username: usernameField.text,
-      aliases: aliasesField.text
+      aliases: aliasesField.text,
+      serverSavesSent: root.serverSavesSent
     })
   }
 
@@ -72,6 +74,7 @@ Column {
     nameField.syncFromStore()
     if (!auth || !auth.settings) return
     var settings = auth.settings
+    root.serverSavesSent = settings.serverSavesSent === true
     addressField.text = service ? service.accountAddress : ""
     if (settings.username !== "") {
       usernameField.text = settings.username
@@ -405,6 +408,34 @@ Column {
           font.pixelSize: Style.font.bodySmall
           placeholderText: "SMTP port"
           onTextEdited: root.serversTouched = true
+        }
+      }
+
+      // Gmail's SMTP and DavMail's Graph backend file Sent themselves; a
+      // copy of our own would be the second one.
+      Row {
+        width: parent.width
+        spacing: Style.space(10)
+
+        ToggleSwitch {
+          id: sentCopySwitch
+          objectName: "imap-server-saves-sent"
+          anchors.verticalCenter: parent.verticalCenter
+          checked: root.serverSavesSent
+          foreground: root.textColor
+          accent: root.accentColor
+          onToggled: root.serverSavesSent = !root.serverSavesSent
+        }
+
+        Text {
+          width: parent.width - sentCopySwitch.width - parent.spacing
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Server saves sent mail (Omamail files no copy in Sent; drafts are unaffected)"
+          color: root.textColor
+          font.family: root.panelFontFamily
+          font.pixelSize: Style.font.bodySmall
+          wrapMode: Text.WordWrap
+          textFormat: Text.PlainText
         }
       }
 
